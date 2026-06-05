@@ -1,0 +1,11 @@
+event_id,user_id,event_type,event_timestamp,amount
+evt-001,u-100,page_view,2025-06-01T10:00:00Z,0
+evt-002,u-101,purchase,2025-06-01T11:30:00Z,49.99
+evt-003,u-100,add_to_cart,2025-06-01T12:05:00Z,24.50
+evt-004,u-102,page_view,2025-06-02T08:15:00Z,0
+evt-005,u-103,purchase,2025-06-02T14:22:00Z,129.00
+evt-006,u-101,page_view,2025-06-03T09:00:00Z,0
+evt-007,u-104,purchase,2025-06-03T16:45:00Z,15.75
+evt-008,u-102,add_to_cart,2025-06-04T11:10:00Z,8.99
+evt-009,u-105,page_view,2025-06-04T18:30:00Z,0
+evt-010,u-103,purchase,2025-06-05T13:00:00Z,67.25
