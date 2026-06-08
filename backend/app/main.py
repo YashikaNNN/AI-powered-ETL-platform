@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -8,10 +9,13 @@ from app.config import settings
 from app.db.session import init_db
 from app.utils.logging import setup_logging
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
+    logger.info("CORS allowed origins: %s", settings.cors_origins)
     await init_db()
     yield
 

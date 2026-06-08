@@ -1,11 +1,15 @@
+import Link from "next/link";
+
 export default function HomePage() {
   return (
-    <main style={{ padding: "2rem", maxWidth: 960, margin: "0 auto" }}>
+    <main className="home">
       <h1>AI ETL Analytics Platform</h1>
-      <p style={{ marginTop: "1rem", opacity: 0.8 }}>
-        Dashboard starter — connect to the FastAPI backend for pipeline runs
-        and AI-generated insights.
+      <p className="home-subtitle">
+        ETL pipelines, analytics, and AI-generated insights.
       </p>
+      <Link href="/dashboard" className="home-link">
+        Open Analytics Dashboard →
+      </Link>
     </main>
   );
 }

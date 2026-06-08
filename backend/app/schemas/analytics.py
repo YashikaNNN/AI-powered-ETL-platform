@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class InsightRequest(BaseModel):
-    query: str
+    query: str = ""
     dataset_id: str | None = None
 
 

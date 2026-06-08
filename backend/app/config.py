@@ -1,9 +1,17 @@
+from typing import Self
+
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEV_CORS_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+]
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "../.env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -14,9 +22,24 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+asyncpg://etl_user:change_me@localhost:5432/etl_analytics"
     )
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: list[str] = DEV_CORS_ORIGINS.copy()
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.0-flash"
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: str | list[str]) -> list[str]:
+        if isinstance(value, str):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
+
+    @model_validator(mode="after")
+    def ensure_dev_cors_origins(self) -> Self:
+        if self.app_env == "development":
+            self.cors_origins = list(
+                dict.fromkeys([*self.cors_origins, *DEV_CORS_ORIGINS])
+            )
+        return self
 
     @property
     def database_url_sync(self) -> str:

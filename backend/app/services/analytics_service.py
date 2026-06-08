@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.integrations.gemini.client import GeminiClient
 from app.models.sample_event import SampleEvent
 from app.schemas.analytics import (
@@ -111,7 +112,76 @@ class AnalyticsService:
             ) from exc
 
     async def generate_insight(self, payload: InsightRequest) -> InsightResponse:
-        summary = await self.gemini.generate_text(
-            prompt=f"Analyze the following analytics request: {payload.query}"
+        if not settings.gemini_api_key:
+            logger.error("Gemini API key is not configured")
+            raise HTTPException(
+                status_code=503,
+                detail="Gemini API key is not configured",
+            )
+
+        try:
+            analytics_summary = await self.get_summary()
+            prompt = self._build_insight_prompt(analytics_summary, payload.query)
+
+            logger.info("Generating AI insights for %s events", analytics_summary.total_events)
+            insight_text = await self.gemini.generate_text(prompt)
+
+            return InsightResponse(
+                summary=insight_text,
+                model=self.gemini.model_name,
+            )
+        except HTTPException:
+            raise
+        except SQLAlchemyError as exc:
+            logger.exception("Database error while generating insights")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to fetch analytics data for insights",
+            ) from exc
+        except Exception as exc:
+            logger.exception("Failed to generate AI insights")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate AI insights",
+            ) from exc
+
+    @staticmethod
+    def _build_insight_prompt(
+        analytics_summary: AnalyticsSummaryResponse,
+        user_query: str,
+    ) -> str:
+        breakdown_lines = [
+            f"  - {item.event_type}: {item.count}"
+            for item in analytics_summary.by_event_type
+        ]
+        breakdown = "\n".join(breakdown_lines) if breakdown_lines else "  - No events recorded"
+
+        question = user_query.strip() or (
+            "Provide actionable business insights based on the analytics data below."
         )
-        return InsightResponse(summary=summary, model=self.gemini.model_name)
+
+        return f"""You are a senior data analyst reviewing ecommerce event analytics.
+
+Analytics Summary (from PostgreSQL):
+- Total Events: {analytics_summary.total_events}
+- Total Revenue: ${analytics_summary.total_revenue}
+- Events by Type:
+{breakdown}
+
+User Request: {question}
+
+Write structured business insights using exactly these markdown sections:
+
+## Key Findings
+Summarize the most important patterns in 2-4 bullet points.
+
+## Revenue Analysis
+Interpret total revenue and which event types likely drive it.
+
+## Event Trends
+Comment on event type distribution and user behavior signals.
+
+## Recommendations
+Provide 2-3 concrete, actionable recommendations.
+
+Keep the response concise, data-driven, and professional."""
