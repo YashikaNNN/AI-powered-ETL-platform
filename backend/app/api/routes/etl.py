@@ -22,4 +22,4 @@ async def trigger_pipeline_run(
     db: AsyncSession = Depends(get_db),
 ) -> PipelineRunResponse:
     service = ETLService(db)
-    return await service.create_run(payload)
+    return await service.execute_run(payload)
