@@ -4,8 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.config import settings
 
+# Render internal Postgres does not need forced SSL; Neon/external clouds do.
 _connect_args: dict = {}
-if settings.database_requires_ssl:
+if "sslmode=require" in settings.database_url or "neon.tech" in settings.database_url:
     _connect_args["ssl"] = "require"
 
 engine = create_async_engine(
