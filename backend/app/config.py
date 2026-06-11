@@ -1,7 +1,7 @@
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 DEV_CORS_ORIGINS = [
     "http://localhost:3000",
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+asyncpg://etl_user:change_me@localhost:5432/etl_analytics"
     )
-    cors_origins: list[str] = DEV_CORS_ORIGINS.copy()
+    cors_origins: Annotated[list[str], NoDecode] = DEV_CORS_ORIGINS.copy()
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.0-flash"
     openrouter_api_key: str = ""
