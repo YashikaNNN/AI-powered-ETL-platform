@@ -25,6 +25,18 @@ class Settings(BaseSettings):
     cors_origins: list[str] = DEV_CORS_ORIGINS.copy()
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.0-flash"
+    openrouter_api_key: str = ""
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        """Ensure async SQLAlchemy gets asyncpg; accept Render/Heroku postgres:// URLs."""
+        url = value.strip()
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+        if url.startswith("postgresql://") and "+asyncpg" not in url:
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -43,7 +55,12 @@ class Settings(BaseSettings):
 
     @property
     def database_url_sync(self) -> str:
-        return self.database_url.replace("+asyncpg", "")
+        """Sync URL for ETL/psycopg2 (strip asyncpg driver suffix)."""
+        return self.database_url.replace("postgresql+asyncpg://", "postgresql://")
+
+    @property
+    def database_requires_ssl(self) -> bool:
+        return "localhost" not in self.database_url and "127.0.0.1" not in self.database_url
 
 
 settings = Settings()
