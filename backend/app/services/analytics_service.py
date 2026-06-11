@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.integrations.gemini.client import GeminiClient
+from app.integrations.openrouter_client import OpenRouterClient
 from app.models.sample_event import SampleEvent
 from app.schemas.analytics import (
     AnalyticsSummaryResponse,
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class AnalyticsService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
-        self.gemini = GeminiClient()
+        self.gemini = OpenRouterClient()
 
     async def list_events(
         self,
@@ -65,6 +65,7 @@ class AnalyticsService:
                 page_size=page_size,
                 total_pages=total_pages,
             )
+
         except SQLAlchemyError as exc:
             logger.exception("Database error while listing events")
             raise HTTPException(
@@ -87,6 +88,7 @@ class AnalyticsService:
                 .group_by(SampleEvent.event_type)
                 .order_by(SampleEvent.event_type)
             )
+
             by_event_type = [
                 EventTypeCount(event_type=row[0], count=row[1])
                 for row in breakdown_result.all()
@@ -104,6 +106,7 @@ class AnalyticsService:
                 total_revenue=Decimal(str(total_revenue)),
                 by_event_type=by_event_type,
             )
+
         except SQLAlchemyError as exc:
             logger.exception("Database error while building analytics summary")
             raise HTTPException(
@@ -112,32 +115,42 @@ class AnalyticsService:
             ) from exc
 
     async def generate_insight(self, payload: InsightRequest) -> InsightResponse:
-        if not settings.gemini_api_key:
-            logger.error("Gemini API key is not configured")
+        if not settings.openrouter_api_key:
+            logger.error("OpenRouter API key is not configured")
             raise HTTPException(
                 status_code=503,
-                detail="Gemini API key is not configured",
+                detail="OpenRouter API key is not configured",
             )
 
         try:
             analytics_summary = await self.get_summary()
-            prompt = self._build_insight_prompt(analytics_summary, payload.query)
+            prompt = self._build_insight_prompt(
+                analytics_summary,
+                payload.query,
+            )
 
-            logger.info("Generating AI insights for %s events", analytics_summary.total_events)
+            logger.info(
+                "Generating AI insights for %s events",
+                analytics_summary.total_events,
+            )
+
             insight_text = await self.gemini.generate_text(prompt)
 
             return InsightResponse(
                 summary=insight_text,
                 model=self.gemini.model_name,
             )
+
         except HTTPException:
             raise
+
         except SQLAlchemyError as exc:
             logger.exception("Database error while generating insights")
             raise HTTPException(
                 status_code=500,
                 detail="Failed to fetch analytics data for insights",
             ) from exc
+
         except Exception as exc:
             logger.exception("Failed to generate AI insights")
             raise HTTPException(
@@ -154,7 +167,12 @@ class AnalyticsService:
             f"  - {item.event_type}: {item.count}"
             for item in analytics_summary.by_event_type
         ]
-        breakdown = "\n".join(breakdown_lines) if breakdown_lines else "  - No events recorded"
+
+        breakdown = (
+            "\n".join(breakdown_lines)
+            if breakdown_lines
+            else "  - No events recorded"
+        )
 
         question = user_query.strip() or (
             "Provide actionable business insights based on the analytics data below."
